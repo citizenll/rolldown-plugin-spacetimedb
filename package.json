@@ -1,0 +1,40 @@
+{
+  "name": "rolldown-plugin-spacetimedb",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dist/index.mjs",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.mts",
+  "scripts": {
+    "dev": "obuild --stub",
+    "build": "obuild",
+    "play": "nr -C example dev"
+  },
+  "keywords": [
+    "vite-plugin",
+    "spacetimedb"
+  ],
+  "author": "citizenl <hi@citizenl.me>",
+  "license": "MIT",
+  "packageManager": "pnpm@10.11.1",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": "./dist/index.mjs"
+  },
+  "dependencies": {
+    "@babel/generator": "^7.27.5",
+    "@babel/parser": "^7.27.5",
+    "@babel/traverse": "^7.27.4",
+    "@babel/types": "^7.27.6"
+  },
+  "devDependencies": {
+    "obuild": "^0.2.1",
+    "rolldown": "1.0.0-beta.15",
+    "typescript": "^5.8.3"
+  },
+  "peerDependencies": {
+    "rolldown": ">=1.0.0-beta.15"
+  }
+}

@@ -1,0 +1,15 @@
+{
+    "compilerOptions": {
+        "target": "esnext",
+        "lib": [
+            "esnext"
+        ],
+        "module": "esnext",
+        "moduleResolution": "bundler",
+        "resolveJsonModule": true,
+        "strict": false,
+        "strictNullChecks": true,
+        "esModuleInterop": true,
+        "noImplicitAny": false
+    }
+}

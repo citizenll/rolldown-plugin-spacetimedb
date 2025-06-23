@@ -1,0 +1,20 @@
+{
+  "name": "example",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "rolldown -c rolldown.config.ts",
+    "build": "rolldown build",
+    "serve": "rolldown preview"
+  },
+  "devDependencies": {
+    "rolldown": "1.0.0-beta.15",
+    "spacetimedb": "workspace:*",
+    "rolldown-plugin-spacetimedb": "workspace:*"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.11.1"
+}

@@ -1,0 +1,12 @@
+{
+  "name": "spacetimedb",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dist/index.mjs",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.mts",
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.11.1"
+}
