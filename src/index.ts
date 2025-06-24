@@ -1,138 +1,240 @@
 import { parse } from '@babel/parser';
-import traverse, { NodePath } from '@babel/traverse';
-import generate from '@babel/generator';
+import _traverse from '@babel/traverse';
+import _generate from '@babel/generator';
 import * as t from '@babel/types';
 import { Plugin } from 'rolldown';
 
+const traverse = (_traverse as any).default || _traverse;
+const generate = (_generate as any).default || _generate;
+
+const typePlaceholderMap: Record<string, string> = {
+    String: 'string',
+    Bool: 'bool',
+    I8: 'i8',
+    U8: 'u8',
+    I16: 'i16',
+    U16: 'u16',
+    I32: 'i32',
+    U32: 'u32',
+    I64: 'i64',
+    U64: 'u64',
+    I128: 'i128',
+    U128: 'u128',
+    I256: 'i256',
+    U256: 'u256',
+    F32: 'f32',
+    F64: 'f64',
+};
+
 /**
- * 一个 Rollup 插件，用于转换 `registerReducer` 调用。
- * 它会从 Reducer 函数的参数中提取 TypeScript 类型注解，
- * 创建一个 `type` 表达式数组，并用无类型的参数替换原始的带类型参数，
- * 将类型数组作为单独的参数传递。
- *
- * 例如，以下代码：
- * ```typescript
- * registerReducer("myReducer", (a: string, b: number, c: boolean[]) => { ... });
- * ```
- *
- * 将被转换为：
- * ```javascript
- * registerReducer("myReducer", [string, number, type.array(boolean)], (a, b, c) => { ... });
- * ```
- * @returns {Plugin} Rollup 插件对象。
+ * Converts a TypeScript type node into a JavaScript expression node.
+ * e.g., `type.string` (TSTypeReference) becomes `type.string` (MemberExpression)
+ * e.g., `Foo` (TSTypeReference) becomes `Foo` (Identifier)
+ * e.g., `string[]` (TSArrayType) becomes `type.array(string)` (CallExpression)
+ * @param typeNode The TSType node to convert.
+ * @returns An Expression node.
  */
+function tsTypeToExpression(typeNode: t.TSType): t.Expression {
+    if (t.isTSArrayType(typeNode)) {
+        return t.callExpression(
+            t.memberExpression(t.identifier('type'), t.identifier('array')),
+            [tsTypeToExpression(typeNode.elementType)]
+        );
+    }
+
+    if (t.isTSTypeReference(typeNode)) {
+        if (
+            t.isIdentifier(typeNode.typeName) &&
+            typeNode.typeName.name === 'Array' &&
+            typeNode.typeParameters &&
+            typeNode.typeParameters.params.length === 1
+        ) {
+            return t.callExpression(
+                t.memberExpression(t.identifier('type'), t.identifier('array')),
+                [tsTypeToExpression(typeNode.typeParameters.params[0])]
+            );
+        }
+        return tsIdentifierToExpression(typeNode.typeName);
+    }
+
+    if (t.isTSBooleanKeyword(typeNode)) {
+        return t.memberExpression(t.identifier('type'), t.identifier('bool'));
+    }
+
+    throw new Error(`Unsupported type node for conversion: ${typeNode.type}`);
+}
+
+/**
+ * Converts a TypeScript identifier or qualified name into a JavaScript expression.
+ * e.g., `Foo` (Identifier) becomes `Foo` (Identifier)
+ * e.g., `type.string` (TSQualifiedName) becomes `type.string` (MemberExpression)
+ * @param idNode The Identifier or TSQualifiedName node.
+ * @returns An Expression node.
+ */
+function tsIdentifierToExpression(idNode: t.Identifier | t.TSQualifiedName): t.Expression {
+    if (t.isIdentifier(idNode)) {
+        const typeName = idNode.name;
+        if (typeName in typePlaceholderMap) {
+            return t.memberExpression(t.identifier('type'), t.identifier(typePlaceholderMap[typeName]));
+        }
+        return t.identifier(typeName);
+    }
+
+    if (t.isTSQualifiedName(idNode)) {
+        const left = tsIdentifierToExpression(idNode.left);
+        const right = t.identifier(idNode.right.name);
+        return t.memberExpression(left, right);
+    }
+
+    const _exhaustiveCheck: never = idNode;
+    throw new Error(`Unsupported identifier node for conversion: ${(_exhaustiveCheck as any).type}`);
+}
+
 export default function spacetimeDbReducerPlugin(): Plugin {
     return {
         name: 'spacetimedb-reducer-transformer',
 
-        /**
-         * 转换模块的代码。
-         * @param {string} code 模块的源代码。
-         * @param {string} id 模块的 ID。
-         * @returns {import('rollup').TransformResult} 转换后的代码，如果未进行转换则返回 null。
-         */
         transform(code: string, id: string) {
-            // 为提高效率，仅处理包含 'registerReducer' 的文件。
-            if (!code.includes('registerReducer')) {
+            if (!code.includes('useReducer') && !code.includes('type')) {
                 return null;
             }
 
             const ast = parse(code, {
                 sourceType: 'module',
-                plugins: ['typescript'], // 启用 TypeScript 解析
+                plugins: ['typescript'],
             });
 
             let modified = false;
+            let needsRegisterReducerImport = false;
+            let needsRegisterTypeImport = false;
+            const registeredTypeNames = new Set<string>();
 
             traverse(ast, {
+                // First, transform type aliases to registerType calls
+                TSTypeAliasDeclaration(path) {
+                    const { node } = path;
+                    if (t.isTSTypeLiteral(node.typeAnnotation)) {
+                        const properties = node.typeAnnotation.members.map(member => {
+                            if (t.isTSPropertySignature(member) && t.isIdentifier(member.key) && member.typeAnnotation) {
+                                const key = t.identifier(member.key.name);
+                                const value = tsTypeToExpression(member.typeAnnotation.typeAnnotation);
+                                return t.objectProperty(key, value);
+                            }
+                            throw new Error('Unsupported member in type alias.');
+                        });
+
+                        const productCall = t.callExpression(
+                            t.memberExpression(t.identifier('type'), t.identifier('product')),
+                            [t.objectExpression(properties)]
+                        );
+
+                        const registerCall = t.callExpression(
+                            t.identifier('registerType'),
+                            [t.stringLiteral(node.id.name), productCall]
+                        );
+
+                        const newVar = t.variableDeclaration('const', [
+                            t.variableDeclarator(t.identifier(node.id.name), registerCall)
+                        ]);
+
+                        path.replaceWith(newVar);
+                        modified = true;
+                        needsRegisterTypeImport = true;
+                        registeredTypeNames.add(node.id.name);
+                    }
+                },
+            });
+
+            traverse(ast, {
+                // Second, transform useReducer calls
                 CallExpression(path) {
                     const callee = path.get('callee');
-
-                    // 检查是否是 'registerReducer' 调用。
-                    if (!callee.isIdentifier({ name: 'registerReducer' })) {
+                    if (!callee.isIdentifier({ name: 'useReducer' })) {
                         return;
                     }
 
                     const args = path.get('arguments');
-
-                    // 检查是否是我们期望的 (name, arrowFunction) 形式。
                     if (args.length !== 2 || !args[1].isArrowFunctionExpression()) {
                         return;
                     }
+
+                    callee.node.name = 'registerReducer';
+                    needsRegisterReducerImport = true;
 
                     const reducerNameNode = args[0].node;
                     const arrowFuncPath = args[1];
                     const arrowFuncNode = arrowFuncPath.node;
 
-                    const paramTypes: (t.Identifier | t.CallExpression)[] = [];
+                    const paramTypes: t.Expression[] = [];
                     const newFuncParams: t.Identifier[] = [];
 
-                    // 遍历箭头函数的参数，提取类型，
-                    // 并创建一个新的无类型参数列表。
                     for (const param of arrowFuncNode.params) {
-                        if (!t.isIdentifier(param) || !param.typeAnnotation || !t.isTSTypeAnnotation(param.typeAnnotation)) {
-                            // 如果参数不是带类型注解的标识符，则无法处理。
-                            // 我们也可以选择保留原样，但这里我们选择跳过此调用的转换。
+                        if (t.isIdentifier(param) && param.typeAnnotation && t.isTSTypeAnnotation(param.typeAnnotation)) {
+                            const typeAnnotation = param.typeAnnotation.typeAnnotation;
+                            paramTypes.push(tsTypeToExpression(typeAnnotation));
+                            newFuncParams.push(t.identifier(param.name));
+                        } else {
+                            // Cannot handle this parameter, so skip transformation of this call
                             return;
                         }
-
-                        const typeAnnotation = param.typeAnnotation.typeAnnotation;
-
-                        let typeExpression: t.Identifier | t.CallExpression;
-                        // 检查 T[] 数组类型
-                        if (t.isTSArrayType(typeAnnotation)) {
-                            const elementType = typeAnnotation.elementType;
-                            // 创建 `type.array(elementType)`
-                            typeExpression = t.callExpression(
-                                t.memberExpression(t.identifier('type'), t.identifier('array')),
-                                [t.identifier(generate(elementType).code)]
-                            );
-                        }
-                        // 检查 Array<T> 数组类型
-                        else if (
-                            t.isTSTypeReference(typeAnnotation) &&
-                            t.isIdentifier(typeAnnotation.typeName) &&
-                            typeAnnotation.typeName.name === 'Array' &&
-                            typeAnnotation.typeParameters &&
-                            typeAnnotation.typeParameters.params.length === 1
-                        ) {
-                            const elementType = typeAnnotation.typeParameters.params[0];
-                            // 创建 `type.array(elementType)`
-                            typeExpression = t.callExpression(
-                                t.memberExpression(t.identifier('type'), t.identifier('array')),
-                                [t.identifier(generate(elementType).code)]
-                            );
-                        }
-                        // 非数组类型
-                        else {
-                            typeExpression = t.identifier(generate(typeAnnotation).code);
-                        }
-
-                        paramTypes.push(typeExpression);
-
-                        // 创建一个没有类型注解的新参数。
-                        newFuncParams.push(t.identifier(param.name));
                     }
 
-                    // 如果没有处理任何参数，则不执行任何操作。
-                    if (newFuncParams.length === 0 && arrowFuncNode.params.length > 0) {
-                        return;
-                    }
-
-                    // 创建类型数组节点。
                     const typesArrayNode = t.arrayExpression(paramTypes);
-
-                    // 创建一个新的没有类型注解的箭头函数。
                     const newArrowFuncNode = t.arrowFunctionExpression(
                         newFuncParams,
                         arrowFuncNode.body,
                         arrowFuncNode.async
                     );
 
-                    // 用新的参数列表替换旧的参数。
                     path.node.arguments = [reducerNameNode, typesArrayNode, newArrowFuncNode];
                     modified = true;
                 },
+
+                // Finally, manage imports
+                Program: {
+                    exit(path) {
+                        if (!modified) return;
+
+                        const programPath = path;
+                        const programNode = programPath.node;
+
+                        // Remove all imports from 'spacetimedb/composable'
+                        programPath.get('body').forEach(p => {
+                            if (p.isImportDeclaration() && p.node.source.value === 'spacetimedb/composable') {
+                                p.remove();
+                            }
+                        });
+
+                        // Remove existing 'spacetimedb' import to avoid duplicates, we'll add a clean one.
+                        programPath.get('body').forEach(p => {
+                            if (p.isImportDeclaration() && p.node.source.value === 'spacetimedb') {
+                                p.remove();
+                            }
+                        });
+
+                        // Add the necessary imports for 'spacetimedb'
+                        const importsToAdd = new Set<string>();
+                        if (needsRegisterReducerImport) {
+                            importsToAdd.add('registerReducer');
+                        }
+                        if (needsRegisterTypeImport) {
+                            importsToAdd.add('registerType');
+                        }
+
+                        // If we transformed anything, we likely need `type`
+                        if (importsToAdd.size > 0) {
+                            importsToAdd.add('type');
+                        }
+
+                        if (importsToAdd.size > 0) {
+                            const newSpecifiers = Array.from(importsToAdd).sort().map(name =>
+                                t.importSpecifier(t.identifier(name), t.identifier(name))
+                            );
+                            const newImport = t.importDeclaration(newSpecifiers, t.stringLiteral('spacetimedb'));
+                            programNode.body.unshift(newImport);
+                        }
+                    }
+                }
             });
 
             if (!modified) {
@@ -146,7 +248,7 @@ export default function spacetimeDbReducerPlugin(): Plugin {
 
             return {
                 code: outputCode,
-                map: sourceMap as any, // generator 的 map 类型与 rollup 的不完全兼容
+                map: sourceMap as any,
             };
         },
     };

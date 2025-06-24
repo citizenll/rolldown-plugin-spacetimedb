@@ -4,7 +4,7 @@ export default defineBuildConfig({
     entries: [
         {
             type: "bundle",
-            input: ["./index.ts"]
+            input: ["./index.ts", "./composable.ts"]
         }
     ]
 });

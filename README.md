@@ -5,14 +5,13 @@
 ### 编译前的优化使用体验代码, 更加符合ts语法, 减少不必要的类型定义
 
 ```typescript
-import { registerReducer, registerType, type } from 'spacetimedb';
-
+import { useReducer, F32, Bool, String } from 'spacetimedb/composable';
 type Foo = {
-    bar: type.f32
-    baz: type.string
+    bar: F32
+    baz: String
 }
 
-useReducer('beepboop', (x:type.f32[], y:type.bool, z:Foo)=>{
+useReducer('beepboop', (x:F32[], y:Bool, z:Foo)=>{
 
 })
 ```

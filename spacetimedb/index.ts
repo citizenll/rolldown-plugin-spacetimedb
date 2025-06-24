@@ -14,7 +14,7 @@ function fmtLog(...data: unknown[]) {
     return data.join(' ');
 }
 
-const console = {
+export const console = {
     __proto__: {},
 
     [Symbol.toStringTag]: 'console',
@@ -85,7 +85,28 @@ const u256Type = Symbol('spacetimedb.type.u256');
 const f32Type = Symbol('spacetimedb.type.f32');
 const f64Type = Symbol('spacetimedb.type.f64');
 
-export const type = freeze({
+export interface SpacetimeDBTypeObject {
+    readonly string: typeof stringType;
+    readonly bool: typeof boolType;
+    readonly i8: typeof i8Type;
+    readonly u8: typeof u8Type;
+    readonly i16: typeof i16Type;
+    readonly u16: typeof u16Type;
+    readonly i32: typeof i32Type;
+    readonly u32: typeof u32Type;
+    readonly i64: typeof i64Type;
+    readonly u64: typeof u64Type;
+    readonly i128: typeof i128Type;
+    readonly u128: typeof u128Type;
+    readonly i256: typeof i256Type;
+    readonly u256: typeof u256Type;
+    readonly f32: typeof f32Type;
+    readonly f64: typeof f64Type;
+    array<const Elem extends AlgebraicType>(elem: Elem): ArrayType<Elem>;
+    product<const Map extends ProductMap>(map: Map): ProductType<Map>;
+}
+
+export const type: SpacetimeDBTypeObject = freeze({
     string: stringType,
     bool: boolType,
     i8: i8Type,
@@ -110,7 +131,7 @@ export const type = freeze({
     },
 });
 
-const toInternalType = Symbol('spacetimedb.toInternalType');
+export const toInternalType = Symbol('spacetimedb.toInternalType');
 
 class ArrayType<Elem extends AlgebraicType> {
     #inner: Extract<import('spacetime:sys/v10.0').AlgebraicType, { tag: 'Array' }>;
@@ -215,7 +236,7 @@ function convertType(ty: AlgebraicType): import('spacetime:sys/v10.0').Algebraic
 
 type PrimitiveType = Extract<(typeof type)[keyof typeof type], symbol>;
 
-type AlgebraicType = TypeRef<any> | ProductType<any> | ArrayType<any> | PrimitiveType;
+export type AlgebraicType = TypeRef<any> | ProductType<any> | ArrayType<any> | PrimitiveType;
 
 export type I8 = number;
 export type U8 = number;
@@ -274,7 +295,7 @@ type AlgebraicTypeToType<T extends AlgebraicType> = [T] extends [TypeRef<infer U
     ? PrimitiveTypeToType<T>
     : never;
 
-type ArgsToType<Args extends readonly AlgebraicType[]> = {
+export type ArgsToType<Args extends readonly AlgebraicType[]> = {
     [i in keyof Args]: AlgebraicTypeToType<Args[i]>;
 };
 
