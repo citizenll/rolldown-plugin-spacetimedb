@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "rolldown -c rolldown.config.ts",
-    "build": "rolldown build",
+    "build": "rolldown -c rolldown.config.ts",
     "serve": "rolldown preview"
   },
   "devDependencies": {
