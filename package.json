@@ -1,6 +1,6 @@
 {
   "name": "rolldown-plugin-spacetimedb",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "",
   "main": "dist/index.mjs",
   "module": "dist/index.mjs",
@@ -18,7 +18,8 @@
   "license": "MIT",
   "packageManager": "pnpm@10.11.1",
   "files": [
-    "dist"
+    "dist",
+    "README.md"
   ],
   "exports": {
     ".": "./dist/index.mjs"
