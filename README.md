@@ -32,14 +32,15 @@ This code is more intuitive and leverages standard TypeScript features.
 
 ```typescript
 // src/index.ts
-import { useReducer, F32, Bool, String } from 'spacetimedb/composable';
+import { useReducer, f32, bool, str, i64 } from 'spacetimedb/composable';
 
 type Foo = {
-    bar: F32,
-    baz: String
+    bar: f32,
+    baz: str,
+    count: i64,
 }
 
-useReducer('beepboop', (x: F32[], y: Bool, z: Foo) => {
+useReducer('beepboop', (x: f32[], y: bool, z: Foo) => {
     // Reducer logic here...
 });
 ```
@@ -54,7 +55,8 @@ import { registerReducer, registerType, type } from "spacetimedb";
 
 const Foo = registerType("Foo", type.product({
 	bar: type.f32,
-	baz: type.string
+	baz: type.string,
+	count: type.i64
 }));
 
 registerReducer("beepboop", [
@@ -82,14 +84,15 @@ registerReducer("beepboop", [
 
 ```typescript
 // src/index.ts
-import { useReducer, F32, Bool, String } from 'spacetimedb/composable';
+import { useReducer, f32, bool, str, i64 } from 'spacetimedb/composable';
 
 type Foo = {
-    bar: F32,
-    baz: String
+    bar: f32,
+    baz: str,
+    count: i64,
 }
 
-useReducer('beepboop', (x: F32[], y: Bool, z: Foo) => {
+useReducer('beepboop', (x: f32[], y: bool, z: Foo) => {
     // Reducer 逻辑...
 });
 ```
@@ -107,6 +110,7 @@ const Foo = registerType(
     type.product({
         bar: type.f32,
         baz: type.string,
+        count: type.i64
     })
 );
 

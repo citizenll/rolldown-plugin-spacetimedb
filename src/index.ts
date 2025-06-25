@@ -8,22 +8,22 @@ const traverse = (_traverse as any).default || _traverse;
 const generate = (_generate as any).default || _generate;
 
 const typePlaceholderMap: Record<string, string> = {
-    String: 'string',
-    Bool: 'bool',
-    I8: 'i8',
-    U8: 'u8',
-    I16: 'i16',
-    U16: 'u16',
-    I32: 'i32',
-    U32: 'u32',
-    I64: 'i64',
-    U64: 'u64',
-    I128: 'i128',
-    U128: 'u128',
-    I256: 'i256',
-    U256: 'u256',
-    F32: 'f32',
-    F64: 'f64',
+    str: 'string',
+    bool: 'bool',
+    i8: 'i8',
+    u8: 'u8',
+    i16: 'i16',
+    u16: 'u16',
+    i32: 'i32',
+    u32: 'u32',
+    i64: 'i64',
+    u64: 'u64',
+    i128: 'i128',
+    u128: 'u128',
+    i256: 'i256',
+    u256: 'u256',
+    f32: 'f32',
+    f64: 'f64',
 };
 
 /**
