@@ -14,6 +14,10 @@
     "vite-plugin",
     "spacetimedb"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/citizenll/rolldown-plugin-spacetimedb.git"
+  },
   "author": "citizenl <hi@citizenl.me>",
   "license": "MIT",
   "packageManager": "pnpm@10.11.1",

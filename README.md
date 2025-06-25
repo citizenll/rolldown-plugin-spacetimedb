@@ -1,6 +1,6 @@
 # Rolldown Plugin for SpacetimeDB Reducer Syntax
 
-[中文](./README.md#chinese-version)
+[中文](#中文版本-(Chinese-Version))
 
 This is a [Rolldown](https://rolldown.rs/) (and Rollup-compatible) plugin that transforms an intuitive, TypeScript-first syntax for SpacetimeDB reducers into the verbose code required by the underlying SpacetimeDB library.
 
